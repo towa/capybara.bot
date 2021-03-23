@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  capybara.bot:
+    build: .
+    container_name: capybara.bot
+    environment:
+      - TZ=Europe/Berlin
+      - MATRIX_USER=@your_user:homeserver.org
+      - MATRIX_HOMESERVER=https://homeserver.org
+      - MATRIX_PASSWORD=your_password
+      - MATRIX_ROOM=!your_room:homeserver.org
+      - CAPYBOT_TIME=13:12
