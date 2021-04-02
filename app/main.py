@@ -10,6 +10,7 @@ import aioschedule as schedule
 import requests
 import logging
 from tempfile import NamedTemporaryFile
+import datetime as dt
 
 from nio import AsyncClient, LoginResponse, UploadResponse
 from nio.events.room_events import UnknownEvent
@@ -152,7 +153,13 @@ async def main():
         print('logged in')
 
     at_time = os.environ.get('CAPYBOT_TIME')
-    at_time = "09:04"
+    at_time = "09:35"
+
+    todays_capy = dt.datetime.now().replace(
+        hour=int(at_time.split(':')[0]),
+        minute=int(at_time.split(':')[1]),
+        second=0, microsecond=0
+    )
     room_id = os.environ.get('MATRIX_ROOM')
 
     if at_time:
@@ -165,11 +172,13 @@ async def main():
         while True:
             await schedule.run_pending()
             sync_response = await client.sync(3000)
-            if len(sync_response.rooms.join) > 0 \
-                and room_id in sync_response.rooms.join.keys():
-                room_info = sync_response.rooms.join[room_id]
-                for event in room_info.timeline.events:
-                    await parse_event(event)
+            now = dt.datetime.now()
+            if now > todays_capy:
+                if len(sync_response.rooms.join) > 0 \
+                    and room_id in sync_response.rooms.join.keys():
+                    room_info = sync_response.rooms.join[room_id]
+                    for event in room_info.timeline.events:
+                        await parse_event(event)
 
             with open('/storage/sync_token','w') as sync_token:
                 sync_token.write(sync_response.next_batch)
