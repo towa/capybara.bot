@@ -12,6 +12,7 @@ import logging
 from tempfile import NamedTemporaryFile
 
 from nio import AsyncClient, LoginResponse, UploadResponse
+from nio.events.room_events import UnknownEvent
 
 
 async def send_image(client, room_id, image):
@@ -80,11 +81,14 @@ async def send_image(client, room_id, image):
     }
 
     try:
-        await client.room_send(
+        resp = await client.room_send(
             room_id,
             message_type="m.room.message",
             content=content
         )
+        print(resp.event_id)
+        with open('/storage/event_id', 'w') as event_id_file:
+            event_id_file.write(resp.event_id)
         print("capybara was posted successfully")
     except Exception:
         print(f"Image send of file {image} failed.")
@@ -102,6 +106,7 @@ async def getclient() -> AsyncClient:
         if (isinstance(resp, LoginResponse)):
             return client
     return False
+
 
 async def daily_routine() -> None:
     room_id = os.environ.get('MATRIX_ROOM')
@@ -123,14 +128,51 @@ async def daily_routine() -> None:
     return False
 
 
+async def parse_event(event):
+    if isinstance(event, UnknownEvent) and event.type == 'm.reaction':
+        content = event.source.get('content')
+        if content:
+            relates = content.get('m.relates_to')
+            if relates:
+                with open('/storage/event_id', 'r') as event_id_file:
+                    last_capy_id = event_id_file.read()
+                event_id = relates.get('event_id')
+                key = relates.get('key')
+                if event_id and event_id == last_capy_id:
+                    if key == '😂':
+                        requests.get('https://capybara.lol/vote/funny')
+                    if key == '😍':
+                        requests.get('https://capybara.lol/vote/cute')
 
-print('starting capybara bot')
-at_time = os.environ.get('CAPYBOT_TIME')
 
-if at_time:
-    schedule.every().day.at(at_time).do(daily_routine)
+async def main():
+    print('starting capybara bot')
+    client = await getclient()
+    if client:
+        print('logged in')
 
-    loop = asyncio.get_event_loop()
-    while True:
-        loop.run_until_complete(schedule.run_pending())
-        time.sleep(1)
+    at_time = os.environ.get('CAPYBOT_TIME')
+    at_time = "09:04"
+    room_id = os.environ.get('MATRIX_ROOM')
+
+    if at_time:
+        schedule.every().day.at(at_time).do(daily_routine)
+
+        if os.path.exists('/storage/sync_token'):
+            with open('/storage/sync_token','r') as sync_token:
+                client.next_batch = sync_token.read()
+
+        while True:
+            await schedule.run_pending()
+            sync_response = await client.sync(3000)
+            if len(sync_response.rooms.join) > 0 \
+                and room_id in sync_response.rooms.join.keys():
+                room_info = sync_response.rooms.join[room_id]
+                for event in room_info.timeline.events:
+                    await parse_event(event)
+
+            with open('/storage/sync_token','w') as sync_token:
+                sync_token.write(sync_response.next_batch)
+
+
+asyncio.get_event_loop().run_until_complete(main())
