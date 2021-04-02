@@ -87,7 +87,6 @@ async def send_image(client, room_id, image):
             message_type="m.room.message",
             content=content
         )
-        print(resp.event_id)
         with open('/storage/event_id', 'w') as event_id_file:
             event_id_file.write(resp.event_id)
         print("capybara was posted successfully")
@@ -142,8 +141,10 @@ async def parse_event(event):
                 if event_id and event_id == last_capy_id:
                     if key == '😂':
                         requests.get('https://capybara.lol/vote/funny')
+                        print('voted funny')
                     if key == '😍':
                         requests.get('https://capybara.lol/vote/cute')
+                        print('voted cute')
 
 
 async def main():
@@ -153,7 +154,6 @@ async def main():
         print('logged in')
 
     at_time = os.environ.get('CAPYBOT_TIME')
-    at_time = "09:35"
 
     todays_capy = dt.datetime.now().replace(
         hour=int(at_time.split(':')[0]),
