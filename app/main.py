@@ -14,6 +14,7 @@ import datetime as dt
 
 from nio import AsyncClient, LoginResponse, UploadResponse
 from nio.events.room_events import UnknownEvent
+from nio.responses import SyncResponse
 
 
 async def send_image(client, room_id, image):
@@ -172,16 +173,20 @@ async def main():
         while True:
             await schedule.run_pending()
             sync_response = await client.sync(3000)
-            now = dt.datetime.now()
-            if now > todays_capy:
-                if len(sync_response.rooms.join) > 0 \
-                    and room_id in sync_response.rooms.join.keys():
-                    room_info = sync_response.rooms.join[room_id]
-                    for event in room_info.timeline.events:
+            if isinstance(sync_response, SyncResponse):
+                now = dt.datetime.now()
+                if now > todays_capy:
+                    if len(sync_response.rooms.join) > 0 \
+                        and room_id in sync_response.rooms.join.keys():
+                        room_info = sync_response.rooms.join[room_id]
+                        for event in room_info.timeline.events:
                         await parse_event(event)
 
-            with open('/storage/sync_token','w') as sync_token:
-                sync_token.write(sync_response.next_batch)
+                with open('/storage/sync_token','w') as sync_token:
+                    sync_token.write(sync_response.next_batch)
+            else:
+                print('failed to sync')
+                time.sleep(1)
 
 
 asyncio.get_event_loop().run_until_complete(main())
