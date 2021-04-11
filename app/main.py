@@ -180,7 +180,7 @@ async def main():
                         and room_id in sync_response.rooms.join.keys():
                         room_info = sync_response.rooms.join[room_id]
                         for event in room_info.timeline.events:
-                        await parse_event(event)
+                            await parse_event(event)
 
                 with open('/storage/sync_token','w') as sync_token:
                     sync_token.write(sync_response.next_batch)
